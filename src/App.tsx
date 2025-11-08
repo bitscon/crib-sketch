@@ -12,6 +12,7 @@ import PropertyAssessment from "./pages/PropertyAssessment";
 import SeasonalCalendar from "./pages/SeasonalCalendar";
 import HealthHub from "./pages/HealthHub";
 import InventoryManagement from "./pages/InventoryManagement";
+import HomesteadBalance from "./pages/HomesteadBalance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InventoryManagement />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/homestead-balance" 
+              element={
+                <ProtectedRoute>
+                  <HomesteadBalance />
                 </ProtectedRoute>
               } 
             />
