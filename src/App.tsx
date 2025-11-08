@@ -10,6 +10,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PropertyAssessment from "./pages/PropertyAssessment";
 import SeasonalCalendar from "./pages/SeasonalCalendar";
+import HealthHub from "./pages/HealthHub";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <SeasonalCalendar />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/health-hub" 
+              element={
+                <ProtectedRoute>
+                  <HealthHub />
                 </ProtectedRoute>
               } 
             />
