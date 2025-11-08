@@ -21,7 +21,7 @@ export default function Register() {
 
   useEffect(() => {
     if (session) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [session, navigate]);
 

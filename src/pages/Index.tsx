@@ -1,9 +1,34 @@
+import { useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sprout, Grid3x3, Building, MapPin } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
 import heroImage from "@/assets/hero-homestead.jpg";
 
 const Index = () => {
+  const { session, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && session) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [session, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Only show landing page if user is NOT logged in
+  if (session) {
+    return null; // Will redirect in useEffect
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -21,13 +46,15 @@ const Index = () => {
               <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                 How It Works
               </a>
-              <a href="#examples" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Examples
-              </a>
             </div>
-            <Button className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-soft">
-              Get Started
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/auth/login">Login</Link>
+              </Button>
+              <Button className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-soft" asChild>
+                <Link to="/auth/register">Get Started</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -45,11 +72,11 @@ const Index = () => {
                 Plan the perfect property layout with intuitive tools. Create sustainable spaces for gardens, livestock, orchards, and buildings that work in harmony with nature.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-elevation text-base">
-                  Start Planning
+                <Button size="lg" className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-elevation text-base" asChild>
+                  <Link to="/auth/register">Start Planning</Link>
                 </Button>
-                <Button size="lg" variant="outline" className="border-2 text-base">
-                  View Examples
+                <Button size="lg" variant="outline" className="border-2 text-base" asChild>
+                  <Link to="/auth/login">Sign In</Link>
                 </Button>
               </div>
             </div>
@@ -181,8 +208,8 @@ const Index = () => {
             <p className="text-lg mb-8 opacity-90">
               Start planning your sustainable property today. No credit card required.
             </p>
-            <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90 transition-colors shadow-elevation">
-              Start Planning Free
+            <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90 transition-colors shadow-elevation" asChild>
+              <Link to="/auth/register">Start Planning Free</Link>
             </Button>
           </div>
         </div>

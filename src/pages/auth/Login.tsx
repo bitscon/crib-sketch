@@ -18,7 +18,7 @@ export default function Login() {
 
   useEffect(() => {
     if (session) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [session, navigate]);
 
@@ -42,7 +42,7 @@ export default function Login() {
         title: 'Welcome back!',
         description: 'You have successfully logged in.',
       });
-      navigate('/');
+      navigate('/dashboard');
     }
 
     setLoading(false);
