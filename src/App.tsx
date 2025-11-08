@@ -11,6 +11,7 @@ import Register from "./pages/auth/Register";
 import PropertyAssessment from "./pages/PropertyAssessment";
 import SeasonalCalendar from "./pages/SeasonalCalendar";
 import HealthHub from "./pages/HealthHub";
+import InventoryManagement from "./pages/InventoryManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <HealthHub />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/inventory" 
+              element={
+                <ProtectedRoute>
+                  <InventoryManagement />
                 </ProtectedRoute>
               } 
             />
