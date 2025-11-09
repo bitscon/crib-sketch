@@ -1,20 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { StatCard } from "@/components/ui/StatCard";
-import { SectionHeader } from "@/components/ui/SectionHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { TabHeader } from "@/components/ui/TabHeader";
-import { Plus, Search, AlertCircle, Lightbulb, Calendar, Hammer, DollarSign, CheckCircle, Clock, Wrench } from "lucide-react";
+import { StatCard, SectionHeader, EmptyState, TabHeader, FilterBar } from "@/components/ui";
+import { Plus, AlertCircle, Lightbulb, Calendar, Hammer, DollarSign, CheckCircle, Clock, Wrench } from "lucide-react";
 
 export default function InfrastructurePlanning() {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Mock data - replace with Supabase query
   const projects = [];
@@ -34,6 +31,41 @@ export default function InfrastructurePlanning() {
     { id: "estimator", label: "Cost Estimator" },
     { id: "timeline", label: "Timeline" },
   ];
+
+  // Filter options
+  const statusOptions = [
+    { value: "all", label: "All Status" },
+    { value: "planned", label: "Planned" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+  ];
+
+  const typeOptions = [
+    { value: "all", label: "All Types" },
+    { value: "greenhouse", label: "Greenhouse" },
+    { value: "barn", label: "Barn" },
+    { value: "fence", label: "Fence" },
+    { value: "water_system", label: "Water System" },
+    { value: "other", label: "Other" },
+  ];
+
+  // Filtered projects based on search and filters
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project: any) => {
+      // Search filter
+      const matchesSearch = !searchQuery || 
+        project.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Status filter
+      const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+
+      // Type filter
+      const matchesType = typeFilter === "all" || project.type === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [projects, searchQuery, statusFilter, typeFilter]);
 
   return (
     <div className="space-y-6">
@@ -186,55 +218,73 @@ export default function InfrastructurePlanning() {
 
             <Card>
               <CardHeader>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4">
                   <CardTitle>All Projects</CardTitle>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search projects..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 w-full sm:w-[250px]"
-                      />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full sm:w-[150px]">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="planned">Planned</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-full sm:w-[150px]">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="water">Water Systems</SelectItem>
-                        <SelectItem value="shelter">Shelters</SelectItem>
-                        <SelectItem value="fencing">Fencing</SelectItem>
-                        <SelectItem value="storage">Storage</SelectItem>
-                        <SelectItem value="power">Power Systems</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <FilterBar
+                    searchPlaceholder="Search projects..."
+                    onSearch={setSearchQuery}
+                    statusOptions={statusOptions}
+                    typeOptions={typeOptions}
+                    onStatusChange={setStatusFilter}
+                    onTypeChange={setTypeFilter}
+                    onViewChange={setViewMode}
+                    showViewToggle={true}
+                  />
                 </div>
               </CardHeader>
               <CardContent>
-                {projects.length === 0 ? (
+                {filteredProjects.length === 0 ? (
                   <EmptyState
                     title="No projects match your filters"
                     description="Try adjusting your search or filters"
                     icon={AlertCircle}
                   />
+                ) : viewMode === "grid" ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredProjects.map((project: any) => (
+                      <Card key={project.id} className="hover:shadow-md transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{project.name}</CardTitle>
+                          <CardDescription>{project.type}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Status:</span>
+                              <span className="font-medium">{project.status}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Budget:</span>
+                              <span className="font-medium">${project.budget?.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Filtered project list will go here */}
+                  <div className="space-y-3">
+                    {filteredProjects.map((project: any) => (
+                      <div
+                        key={project.id}
+                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <h4 className="font-medium">{project.name}</h4>
+                          <p className="text-sm text-muted-foreground">{project.type}</p>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-sm font-medium">{project.status}</p>
+                            <p className="text-xs text-muted-foreground">Status</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">${project.budget?.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">Budget</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
