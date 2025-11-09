@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Target, Plus, TrendingUp, Pencil, Trash2 } from 'lucide-react';
+import { Target, Plus, TrendingUp, Pencil, Trash2, ChevronRight, CheckCircle2, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { GoalForm } from '@/features/goals/GoalForm';
-import { GoalList } from '@/features/goals/GoalList';
 import { GoalUpdateModal } from '@/features/goals/GoalUpdateModal';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   getGoals,
   createGoal,
@@ -172,147 +173,180 @@ const HomesteadGoals = () => {
   const progress = selectedGoal ? calculateProgress(selectedGoal, updates) : 0;
   const latestUpdate = updates[0];
 
+  const activeGoals = goals.filter(goal => goal.status === 'active');
+  const achievedGoals = goals.filter(goal => goal.status === 'achieved');
+  const archivedGoals = goals.filter(goal => goal.status === 'archived');
+
+  const renderGoalCard = (goal: HomesteadGoal) => (
+    <Card 
+      key={goal.id}
+      className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => handleSelectGoal(goal)}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="font-semibold text-foreground">{goal.title}</h3>
+        <div className="flex gap-1">
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedGoal(goal);
+              setShowForm(true);
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm('Are you sure you want to delete this goal?')) {
+                deleteMutation.mutate(goal.id);
+              }
+            }}
+          >
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </Button>
+        </div>
+      </div>
+      {goal.description && (
+        <p className="text-sm text-muted-foreground mb-3">{goal.description}</p>
+      )}
+      {goal.start_value !== null && goal.target_value !== null && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Progress</span>
+            <span>{goal.start_value} / {goal.target_value} {goal.target_metric}</span>
+          </div>
+          <Progress value={calculateProgress(goal, [])} className="h-2" />
+        </div>
+      )}
+      {goal.target_date && (
+        <p className="text-xs text-muted-foreground mt-2">
+          Target: {format(new Date(goal.target_date), 'PPP')}
+        </p>
+      )}
+    </Card>
+  );
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Target className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Homestead Goals
           </h1>
+          <p className="text-muted-foreground">
+            Define your vision and track your progress.
+          </p>
         </div>
         <Button onClick={handleNewGoal}>
           <Plus className="h-4 w-4 mr-2" />
           New Goal
         </Button>
       </div>
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground mb-4">Your Goals</h2>
-          <GoalList
-            goals={goals}
-            onSelectGoal={handleSelectGoal}
-            selectedGoal={selectedGoal}
+
+      {showForm && (
+        <Card className="p-6 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-950/20 dark:to-teal-950/20">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            {selectedGoal ? 'Edit Goal' : 'New Goal'}
+          </h2>
+          <GoalForm
+            goal={selectedGoal}
+            onSubmit={handleSubmit}
+            onCancel={() => setShowForm(false)}
           />
-        </div>
+        </Card>
+      )}
 
-        <div className="lg:sticky lg:top-24 h-fit space-y-6">
-          {showForm ? (
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold text-foreground mb-4">
-                {selectedGoal ? 'Edit Goal' : 'New Goal'}
-              </h2>
-              <GoalForm
-                goal={selectedGoal}
-                onSubmit={handleSubmit}
-                onCancel={() => setShowForm(false)}
-              />
-            </Card>
-          ) : selectedGoal ? (
-            <>
-              <Card className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-foreground mb-2">
-                      {selectedGoal.title}
-                    </h2>
-                    {selectedGoal.description && (
-                      <p className="text-muted-foreground">
-                        {selectedGoal.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="icon" variant="ghost" onClick={handleEditGoal}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            'Are you sure you want to delete this goal?'
-                          )
-                        ) {
-                          deleteMutation.mutate(selectedGoal.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
+      <div className="space-y-4">
+        <Collapsible defaultOpen>
+          <CollapsibleTrigger className="w-full">
+            <Card className="p-4 bg-gradient-to-r from-green-100 to-teal-100 dark:from-green-900/30 dark:to-teal-900/30 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Target className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-foreground">Active Goals</span>
+                  <span className="text-sm text-muted-foreground">({activeGoals.length})</span>
                 </div>
-
-                {selectedGoal.start_value !== null &&
-                  selectedGoal.target_value !== null && (
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-semibold">
-                          {latestUpdate?.current_value ?? selectedGoal.start_value} /{' '}
-                          {selectedGoal.target_value} {selectedGoal.target_metric}
-                        </span>
-                      </div>
-                      <Progress value={progress} className="h-3" />
-                      <p className="text-sm text-muted-foreground text-right">
-                        {Math.round(progress)}% Complete
-                      </p>
-                    </div>
-                  )}
-
-                <Button
-                  className="w-full"
-                  onClick={() => setShowUpdateModal(true)}
-                >
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Add Progress Update
-                </Button>
-              </Card>
-
-              {updates.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">
-                    Progress History
-                  </h3>
-                  <div className="space-y-4">
-                    {updates.map((update) => (
-                      <div
-                        key={update.id}
-                        className="border-l-2 border-primary pl-4 py-2"
-                      >
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="font-semibold text-foreground">
-                            {update.current_value} {selectedGoal.target_metric}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(update.date), 'PPP')}
-                          </span>
-                        </div>
-                        {update.notes && (
-                          <p className="text-sm text-muted-foreground">
-                            {update.notes}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-            </>
-          ) : (
-            <Card className="p-12 text-center">
-              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">
-                Select a goal to view details or create a new one
-              </p>
-              <Button onClick={handleNewGoal}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Goal
-              </Button>
+                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
+              </div>
             </Card>
-          )}
-        </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-3">
+            {activeGoals.length > 0 ? (
+              activeGoals.map(renderGoalCard)
+            ) : (
+              <EmptyState
+                title="No Active Goals"
+                description="Create your first goal to start tracking progress"
+                icon={Target}
+                action={
+                  <Button onClick={handleNewGoal}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Goal
+                  </Button>
+                }
+              />
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Collapsible>
+          <CollapsibleTrigger className="w-full">
+            <Card className="p-4 bg-gradient-to-r from-green-100 to-teal-100 dark:from-green-900/30 dark:to-teal-900/30 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-foreground">Achieved Goals</span>
+                  <span className="text-sm text-muted-foreground">({achievedGoals.length})</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
+              </div>
+            </Card>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-3">
+            {achievedGoals.length > 0 ? (
+              achievedGoals.map(renderGoalCard)
+            ) : (
+              <EmptyState
+                title="No Achieved Goals Yet"
+                description="Keep working towards your goals!"
+                icon={CheckCircle2}
+              />
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Collapsible>
+          <CollapsibleTrigger className="w-full">
+            <Card className="p-4 bg-gradient-to-r from-green-100 to-teal-100 dark:from-green-900/30 dark:to-teal-900/30 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Archive className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-foreground">Archived Goals</span>
+                  <span className="text-sm text-muted-foreground">({archivedGoals.length})</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
+              </div>
+            </Card>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-3">
+            {archivedGoals.length > 0 ? (
+              archivedGoals.map(renderGoalCard)
+            ) : (
+              <EmptyState
+                title="No Archived Goals"
+                description="Archived goals will appear here"
+                icon={Archive}
+              />
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       <GoalUpdateModal
