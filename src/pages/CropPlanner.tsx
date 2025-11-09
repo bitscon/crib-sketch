@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, CalendarIcon } from 'lucide-react';
 import { getCropOptions, CropOption } from '@/features/crops/cropsApi';
+import { PlantingCalendar } from '@/features/crops/PlantingCalendar';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -635,18 +636,71 @@ const CropPlanner = () => {
         </TabsContent>
 
         {/* Planting Calendar Tab */}
-        <TabsContent value="calendar">
-          <Card>
-            <CardHeader>
-              <CardTitle>Planting Calendar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                View optimal planting times based on your location and frost dates.
-                This feature is coming soon!
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="calendar" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Planting Calendar</h2>
+            
+            {/* Filters */}
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="calendarSeason">Filter by Season</Label>
+                    <Select defaultValue="all">
+                      <SelectTrigger id="calendarSeason">
+                        <SelectValue placeholder="All seasons" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="all">All Seasons</SelectItem>
+                        <SelectItem value="Spring">Spring</SelectItem>
+                        <SelectItem value="Summer">Summer</SelectItem>
+                        <SelectItem value="Fall">Fall</SelectItem>
+                        <SelectItem value="Winter">Winter</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="calendarProperty">Filter by Property</Label>
+                    <Select defaultValue="all">
+                      <SelectTrigger id="calendarProperty">
+                        <SelectValue placeholder="All properties" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="all">All Properties</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Calendar */}
+            {rotationPlans.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <EmptyState
+                    title="No rotation plans to display"
+                    description="Create rotation plans with planting dates to see them on the calendar."
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <PlantingCalendar plans={rotationPlans.map(plan => ({
+                id: plan.id,
+                user_id: '',
+                name: plan.planName,
+                property_id: null,
+                plot_name: plan.plotName,
+                year: plan.year,
+                season: plan.season,
+                crop_name: plan.crop,
+                plant_date: plan.plantDate ? format(plan.plantDate, 'yyyy-MM-dd') : null,
+                harvest_date: plan.harvestDate ? format(plan.harvestDate, 'yyyy-MM-dd') : null,
+                notes: plan.notes,
+              }))} />
+            )}
+          </div>
         </TabsContent>
 
         {/* Recommendations Tab */}
