@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, CalendarIcon } from 'lucide-react';
+import { getCropOptions, CropOption } from '@/features/crops/cropsApi';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,6 +168,18 @@ const CropPlanner = () => {
   const [plantDate, setPlantDate] = useState<Date | undefined>();
   const [harvestDate, setHarvestDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
+  
+  // Crop options for rotation form (fetched from DB or fallback)
+  const [cropOptions, setCropOptions] = useState<CropOption[]>([]);
+
+  // Load crop options on mount
+  useEffect(() => {
+    const loadCropOptions = async () => {
+      const options = await getCropOptions();
+      setCropOptions(options);
+    };
+    loadCropOptions();
+  }, []);
 
   const filteredCrops = mockCrops.filter((crop) => {
     const matchesSearch = crop.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -474,8 +487,8 @@ const CropPlanner = () => {
                       <SelectTrigger id="crop">
                         <SelectValue placeholder="Select crop" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {mockCrops.map((crop) => (
+                      <SelectContent className="bg-background z-50">
+                        {cropOptions.map((crop) => (
                           <SelectItem key={crop.id} value={crop.name}>
                             {crop.name}
                           </SelectItem>
