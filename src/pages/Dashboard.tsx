@@ -13,11 +13,14 @@ import {
   AlertCircle,
   Cloud,
   Droplets,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StatCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTasks } from '@/features/tasks/api';
 import { getTransactions } from '@/features/finance/api';
@@ -65,6 +68,11 @@ const Dashboard = () => {
   const monthlyExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netIncome = monthlyIncome - monthlyExpenses;
 
+  // Calculate task statistics
+  const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
+  const activeTasksCount = tasks.filter(t => t.status === 'in_progress').length;
+  const pendingTasksCount = tasks.filter(t => t.status === 'pending').length;
+
   // Quick actions
   const quickActions = [
     { title: 'New Task', icon: Plus, href: '/seasonal-calendar', color: 'bg-blue-500' },
@@ -96,6 +104,38 @@ const Dashboard = () => {
           <p className="text-muted-foreground">
             Here's a snapshot of your homestead today.
           </p>
+        </div>
+
+        {/* Overview Stats */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Active Tasks"
+            value={activeTasksCount}
+            icon={Clock}
+            tone="blue"
+            description="Currently in progress"
+          />
+          <StatCard
+            title="Pending Tasks"
+            value={pendingTasksCount}
+            icon={Target}
+            tone="amber"
+            description="Awaiting action"
+          />
+          <StatCard
+            title="This Month's Net"
+            value={`$${netIncome.toFixed(0)}`}
+            icon={TrendingUp}
+            tone={netIncome >= 0 ? "green" : "neutral"}
+            description={format(now, 'MMMM yyyy')}
+          />
+          <StatCard
+            title="Animals"
+            value={animals.length}
+            icon={Heart}
+            tone="green"
+            description="Total tracked"
+          />
         </div>
 
         {/* Quick Actions */}
