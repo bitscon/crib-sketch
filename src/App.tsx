@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthContextProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Sidebar } from "@/components/Sidebar";
 import Index from "./pages/Index";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -19,6 +20,18 @@ import HomesteadGoals from "./pages/HomesteadGoals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Layout wrapper for protected routes with sidebar
+const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex min-h-screen w-full">
+    <Sidebar />
+    <main className="ml-64 flex-1 overflow-y-auto bg-background">
+      <div className="p-8">
+        {children}
+      </div>
+    </main>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,7 +48,9 @@ const App = () => (
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <ProtectedLayout>
+                    <Dashboard />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
@@ -43,7 +58,9 @@ const App = () => (
               path="/property-assessment"
               element={
                 <ProtectedRoute>
-                  <PropertyAssessment />
+                  <ProtectedLayout>
+                    <PropertyAssessment />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
@@ -51,7 +68,9 @@ const App = () => (
               path="/seasonal-calendar" 
               element={
                 <ProtectedRoute>
-                  <SeasonalCalendar />
+                  <ProtectedLayout>
+                    <SeasonalCalendar />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
@@ -59,7 +78,9 @@ const App = () => (
               path="/health-hub" 
               element={
                 <ProtectedRoute>
-                  <HealthHub />
+                  <ProtectedLayout>
+                    <HealthHub />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
@@ -67,7 +88,9 @@ const App = () => (
               path="/inventory" 
               element={
                 <ProtectedRoute>
-                  <InventoryManagement />
+                  <ProtectedLayout>
+                    <InventoryManagement />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
@@ -75,23 +98,29 @@ const App = () => (
               path="/homestead-balance" 
               element={
                 <ProtectedRoute>
-                  <HomesteadBalance />
+                  <ProtectedLayout>
+                    <HomesteadBalance />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
             <Route 
-              path="/homestead-journal" 
+              path="/journal" 
               element={
                 <ProtectedRoute>
-                  <HomesteadJournal />
+                  <ProtectedLayout>
+                    <HomesteadJournal />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
             <Route 
-              path="/homestead-goals" 
+              path="/goals" 
               element={
                 <ProtectedRoute>
-                  <HomesteadGoals />
+                  <ProtectedLayout>
+                    <HomesteadGoals />
+                  </ProtectedLayout>
                 </ProtectedRoute>
               } 
             />
