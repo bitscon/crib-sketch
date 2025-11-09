@@ -17,6 +17,7 @@ import InventoryManagement from "./pages/InventoryManagement";
 import HomesteadBalance from "./pages/HomesteadBalance";
 import HomesteadJournal from "./pages/HomesteadJournal";
 import HomesteadGoals from "./pages/HomesteadGoals";
+import CropPlanner from "./pages/CropPlanner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -120,6 +121,16 @@ const App = () => (
                 <ProtectedRoute>
                   <ProtectedLayout>
                     <HomesteadGoals />
+                  </ProtectedLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/crop-planner" 
+              element={
+                <ProtectedRoute>
+                  <ProtectedLayout>
+                    <CropPlanner />
                   </ProtectedLayout>
                 </ProtectedRoute>
               } 
