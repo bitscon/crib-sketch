@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, CalendarIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { cn } from '@/lib/utils';
 
 interface Crop {
   id: string;
@@ -132,10 +140,33 @@ const mockCrops: Crop[] = [
 
 const categories = ['All', 'Vegetables', 'Herbs', 'Fruits'];
 
+interface RotationPlan {
+  id: string;
+  planName: string;
+  plotName: string;
+  year: number;
+  season: string;
+  crop: string;
+  plantDate: Date | null;
+  harvestDate: Date | null;
+  notes: string;
+}
+
 const CropPlanner = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
+  
+  // Rotation Plan form state
+  const [rotationPlans, setRotationPlans] = useState<RotationPlan[]>([]);
+  const [planName, setPlanName] = useState('');
+  const [plotName, setPlotName] = useState('');
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [season, setSeason] = useState('');
+  const [selectedCropForPlan, setSelectedCropForPlan] = useState('');
+  const [plantDate, setPlantDate] = useState<Date | undefined>();
+  const [harvestDate, setHarvestDate] = useState<Date | undefined>();
+  const [notes, setNotes] = useState('');
 
   const filteredCrops = mockCrops.filter((crop) => {
     const matchesSearch = crop.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -153,6 +184,47 @@ const CropPlanner = () => {
     if (requirement === 'High') return 'bg-blue-600/10 text-blue-700 dark:text-blue-400';
     if (requirement === 'Moderate') return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400';
     return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
+  };
+
+  const handleSaveRotation = () => {
+    if (!planName || !plotName || !season || !selectedCropForPlan) {
+      return; // Basic validation
+    }
+
+    const newPlan: RotationPlan = {
+      id: Date.now().toString(),
+      planName,
+      plotName,
+      year,
+      season,
+      crop: selectedCropForPlan,
+      plantDate: plantDate || null,
+      harvestDate: harvestDate || null,
+      notes,
+    };
+
+    setRotationPlans([...rotationPlans, newPlan]);
+    
+    // Reset form
+    setPlanName('');
+    setPlotName('');
+    setYear(new Date().getFullYear());
+    setSeason('');
+    setSelectedCropForPlan('');
+    setPlantDate(undefined);
+    setHarvestDate(undefined);
+    setNotes('');
+  };
+
+  const handleCancelRotation = () => {
+    setPlanName('');
+    setPlotName('');
+    setYear(new Date().getFullYear());
+    setSeason('');
+    setSelectedCropForPlan('');
+    setPlantDate(undefined);
+    setHarvestDate(undefined);
+    setNotes('');
   };
 
   return (
@@ -336,18 +408,217 @@ const CropPlanner = () => {
         </TabsContent>
 
         {/* Rotation Plans Tab */}
-        <TabsContent value="rotation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rotation Plans</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Plan your crop rotation schedules to maintain soil health and prevent disease.
-                This feature is coming soon!
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="rotation" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Crop Rotation Plans</h2>
+            
+            {/* New Rotation Plan Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>New Rotation Plan</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="planName">Plan Name *</Label>
+                    <Input
+                      id="planName"
+                      value={planName}
+                      onChange={(e) => setPlanName(e.target.value)}
+                      placeholder="e.g., Spring Garden 2024"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="plotName">Plot/Area Name *</Label>
+                    <Input
+                      id="plotName"
+                      value={plotName}
+                      onChange={(e) => setPlotName(e.target.value)}
+                      placeholder="e.g., North Field"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="year">Year</Label>
+                    <Input
+                      id="year"
+                      type="number"
+                      value={year}
+                      onChange={(e) => setYear(parseInt(e.target.value))}
+                      min={2020}
+                      max={2050}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="season">Season *</Label>
+                    <Select value={season} onValueChange={setSeason}>
+                      <SelectTrigger id="season">
+                        <SelectValue placeholder="Select season" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Spring">Spring</SelectItem>
+                        <SelectItem value="Summer">Summer</SelectItem>
+                        <SelectItem value="Fall">Fall</SelectItem>
+                        <SelectItem value="Winter">Winter</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="crop">Crop *</Label>
+                    <Select value={selectedCropForPlan} onValueChange={setSelectedCropForPlan}>
+                      <SelectTrigger id="crop">
+                        <SelectValue placeholder="Select crop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mockCrops.map((crop) => (
+                          <SelectItem key={crop.id} value={crop.name}>
+                            {crop.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Plant Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !plantDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {plantDate ? format(plantDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={plantDate}
+                          onSelect={setPlantDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Expected Harvest Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !harvestDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {harvestDate ? format(harvestDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={harvestDate}
+                          onSelect={setHarvestDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add any additional notes about this rotation plan..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={handleCancelRotation}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveRotation}
+                    disabled={!planName || !plotName || !season || !selectedCropForPlan}
+                  >
+                    Save Rotation
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Your Rotation Plans */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Your Rotation Plans</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {rotationPlans.length === 0 ? (
+                  <EmptyState
+                    title="No rotation plans yet"
+                    description="Create your first rotation plan to start managing your crop cycles."
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {rotationPlans.map((plan) => (
+                      <Card key={plan.id} className="border-l-4 border-l-primary">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{plan.planName}</CardTitle>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {plan.plotName} • {plan.season} {plan.year}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{plan.crop}</Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            {plan.plantDate && (
+                              <div>
+                                <span className="text-muted-foreground">Plant Date:</span>
+                                <p className="font-medium">{format(plan.plantDate, "PP")}</p>
+                              </div>
+                            )}
+                            {plan.harvestDate && (
+                              <div>
+                                <span className="text-muted-foreground">Harvest Date:</span>
+                                <p className="font-medium">{format(plan.harvestDate, "PP")}</p>
+                              </div>
+                            )}
+                          </div>
+                          {plan.notes && (
+                            <div className="pt-2">
+                              <span className="text-sm text-muted-foreground">Notes:</span>
+                              <p className="text-sm mt-1">{plan.notes}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Planting Calendar Tab */}
