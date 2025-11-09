@@ -1,20 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { CropRotation } from '@/types/crops';
 
-export interface RotationPlan {
-  id: string;
-  user_id: string;
-  name: string;
-  property_id: string | null;
-  plot_name: string;
-  year: number;
-  season: string;
-  crop_name: string;
-  plant_date: string | null;
-  harvest_date: string | null;
-  notes: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
+export type RotationPlan = CropRotation;
 
 export interface CreateRotationPlanData {
   name: string;
@@ -44,7 +31,7 @@ export interface UpdateRotationPlanData {
  * Fetch all rotation plans for a specific user
  */
 export const getRotationPlans = async (userId: string): Promise<RotationPlan[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('crop_rotations')
     .select('*')
     .eq('user_id', userId)
@@ -56,7 +43,7 @@ export const getRotationPlans = async (userId: string): Promise<RotationPlan[]> 
     throw error;
   }
 
-  return data || [];
+  return (data ?? []) as RotationPlan[];
 };
 
 /**
@@ -72,7 +59,7 @@ export const createRotationPlan = async (
     throw new Error('User must be authenticated to create a rotation plan');
   }
 
-  const { data: newPlan, error } = await supabase
+  const { data: newPlan, error } = await (supabase as any)
     .from('crop_rotations')
     .insert({
       user_id: user.id,
@@ -94,7 +81,7 @@ export const createRotationPlan = async (
     throw error;
   }
 
-  return newPlan;
+  return newPlan as RotationPlan;
 };
 
 /**
@@ -104,7 +91,7 @@ export const updateRotationPlan = async (
   id: string,
   data: UpdateRotationPlanData
 ): Promise<RotationPlan> => {
-  const { data: updatedPlan, error } = await supabase
+  const { data: updatedPlan, error } = await (supabase as any)
     .from('crop_rotations')
     .update(data)
     .eq('id', id)
@@ -116,14 +103,14 @@ export const updateRotationPlan = async (
     throw error;
   }
 
-  return updatedPlan;
+  return updatedPlan as RotationPlan;
 };
 
 /**
  * Delete a rotation plan
  */
 export const deleteRotationPlan = async (id: string): Promise<void> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('crop_rotations')
     .delete()
     .eq('id', id);

@@ -1,9 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Crop } from '@/types/crops';
 
-export interface CropOption {
-  id: string;
-  name: string;
-}
+export type CropOption = Crop;
 
 /**
  * Fetch crops from Supabase crops table.
@@ -11,7 +9,7 @@ export interface CropOption {
  */
 export const fetchCropsFromDatabase = async (): Promise<CropOption[] | null> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('crops')
       .select('id, name')
       .order('name', { ascending: true });
@@ -21,7 +19,7 @@ export const fetchCropsFromDatabase = async (): Promise<CropOption[] | null> => 
       return null;
     }
 
-    return data || null;
+    return (data ?? []) as CropOption[];
   } catch (err) {
     console.log('Error fetching crops:', err);
     return null;
