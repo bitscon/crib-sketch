@@ -106,23 +106,19 @@ export function Sidebar() {
       </div>
 
       {/* User Section */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+      <div className="border-t border-border py-4 px-4">
+        <Link to="/user-profile" className="block">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground">Manage your account</p>
+            </div>
           </div>
-        </div>
-        <Link
-          to="/account"
-          className="block w-full px-3 py-2 text-sm text-center rounded-md bg-accent hover:bg-accent/80 text-foreground transition-colors"
-        >
-          Manage account
         </Link>
       </div>
     </aside>
