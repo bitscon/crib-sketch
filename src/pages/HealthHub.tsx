@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AnimalForm } from '@/features/health/AnimalForm';
 import { MedicationForm } from '@/features/health/MedicationForm';
+import { GroomingScheduleForm } from '@/features/health/GroomingScheduleForm';
 import {
   getAnimals,
   createAnimal,
@@ -18,6 +19,16 @@ import {
   Medication,
   MedicationInsert,
 } from '@/features/health/medicationsApi';
+import {
+  getGroomingSchedules,
+  getGroomingRecords,
+  createGroomingSchedule,
+  updateGroomingSchedule,
+  deleteGroomingSchedule,
+  GroomingSchedule,
+  GroomingScheduleInsert,
+  GroomingRecord,
+} from '@/features/health/groomingApi';
 import { calculateDosage, formatDosage } from '@/features/health/dosageCalculator';
 import { getProperties, Property } from '@/features/properties/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,8 +42,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Settings, Edit2, Trash2, Bird, Pill, Search, Calculator, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Settings, Edit2, Trash2, Bird, Pill, Search, Calculator, AlertTriangle, Scissors, Calendar, History } from 'lucide-react';
+import { format, addDays, parseISO, differenceInDays } from 'date-fns';
 
 export default function HealthHub() {
   const { user } = useAuth();
@@ -40,13 +51,18 @@ export default function HealthHub() {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [groomingSchedules, setGroomingSchedules] = useState<GroomingSchedule[]>([]);
+  const [groomingRecords, setGroomingRecords] = useState<GroomingRecord[]>([]);
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [selectedMedication, setSelectedMedication] = useState<Medication | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<GroomingSchedule | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [medicationFormOpen, setMedicationFormOpen] = useState(false);
+  const [groomingFormOpen, setGroomingFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('animals');
+  const [groomingTab, setGroomingTab] = useState('upcoming');
   const [medicationSearch, setMedicationSearch] = useState('');
   
   // Dosage calculator state
@@ -66,14 +82,18 @@ export default function HealthHub() {
 
     try {
       setLoading(true);
-      const [animalsData, propertiesData, medicationsData] = await Promise.all([
+      const [animalsData, propertiesData, medicationsData, schedulesData, recordsData] = await Promise.all([
         getAnimals(user.id),
         getProperties(user.id),
         getMedications(user.id),
+        getGroomingSchedules(user.id),
+        getGroomingRecords(user.id),
       ]);
       setAnimals(animalsData);
       setProperties(propertiesData);
       setMedications(medicationsData);
+      setGroomingSchedules(schedulesData);
+      setGroomingRecords(recordsData);
     } catch (error) {
       toast({
         title: 'Error',
@@ -238,6 +258,79 @@ export default function HealthHub() {
     setDosageWeight('');
     setCalculatedDose(null);
   };
+
+  const handleGroomingScheduleSubmit = async (data: GroomingScheduleInsert) => {
+    if (!user?.id) return;
+
+    try {
+      if (selectedSchedule) {
+        const updated = await updateGroomingSchedule(selectedSchedule.id, user.id, data);
+        setGroomingSchedules(groomingSchedules.map((s) => (s.id === updated.id ? updated : s)));
+        toast({
+          title: 'Success',
+          description: 'Grooming schedule updated successfully',
+        });
+      } else {
+        const newSchedule = await createGroomingSchedule(user.id, data);
+        setGroomingSchedules([newSchedule, ...groomingSchedules]);
+        toast({
+          title: 'Success',
+          description: 'Grooming schedule added successfully',
+        });
+      }
+      setSelectedSchedule(null);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: `Failed to ${selectedSchedule ? 'update' : 'add'} grooming schedule`,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteSchedule = async (id: string) => {
+    if (!user?.id) return;
+    if (!confirm('Are you sure you want to delete this grooming schedule?')) return;
+
+    try {
+      await deleteGroomingSchedule(id, user.id);
+      setGroomingSchedules(groomingSchedules.filter((s) => s.id !== id));
+      toast({
+        title: 'Success',
+        description: 'Grooming schedule deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete grooming schedule',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Calculate upcoming grooming tasks
+  const upcomingGroomingTasks = groomingSchedules
+    .filter((schedule) => schedule.is_active)
+    .map((schedule) => {
+      const animal = animals.find((a) => a.id === schedule.animal_id);
+      if (!animal) return null;
+
+      const lastCompleted = schedule.last_completed_date
+        ? parseISO(schedule.last_completed_date)
+        : new Date();
+      const nextDue = addDays(lastCompleted, schedule.frequency_days);
+      const daysUntilDue = differenceInDays(nextDue, new Date());
+
+      return {
+        ...schedule,
+        animal,
+        nextDue,
+        daysUntilDue,
+      };
+    })
+    .filter((task) => task !== null)
+    .sort((a, b) => a!.daysUntilDue - b!.daysUntilDue);
 
   if (loading) {
     return (
@@ -411,14 +504,213 @@ export default function HealthHub() {
           <TabsContent value="grooming">
             <Card>
               <CardHeader>
-                <CardTitle>Grooming</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Grooming</CardTitle>
+                  <Button
+                    onClick={() => {
+                      setSelectedSchedule(null);
+                      setGroomingFormOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Grooming Schedule
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>Grooming schedule coming soon...</p>
+                {/* Inner Tabs */}
+                <div className="mb-6">
+                  <TabHeader
+                    tabs={[
+                      { id: 'upcoming', label: 'Upcoming' },
+                      { id: 'schedules', label: 'Schedules' },
+                      { id: 'history', label: 'History' },
+                    ]}
+                    activeTab={groomingTab}
+                    onTabChange={setGroomingTab}
+                  />
                 </div>
+
+                <Tabs value={groomingTab} onValueChange={setGroomingTab}>
+                  {/* Upcoming Tab */}
+                  <TabsContent value="upcoming">
+                    {upcomingGroomingTasks.length === 0 ? (
+                      <EmptyState
+                        icon={Scissors}
+                        title="No upcoming grooming tasks"
+                        description="Create a grooming schedule to see upcoming tasks here."
+                        action={
+                          <Button onClick={() => setGroomingFormOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Grooming Schedule
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Animal</TableHead>
+                            <TableHead>Grooming Type</TableHead>
+                            <TableHead>Next Due</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {upcomingGroomingTasks.map((task) => {
+                            if (!task) return null;
+                            const isOverdue = task.daysUntilDue < 0;
+                            const isDueSoon = task.daysUntilDue >= 0 && task.daysUntilDue <= 7;
+
+                            return (
+                              <TableRow key={task.id}>
+                                <TableCell className="font-medium">{task.animal.name}</TableCell>
+                                <TableCell>{task.grooming_type}</TableCell>
+                                <TableCell>{format(task.nextDue, 'MMM d, yyyy')}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={isOverdue ? 'destructive' : isDueSoon ? 'default' : 'secondary'}
+                                  >
+                                    {isOverdue
+                                      ? `Overdue by ${Math.abs(task.daysUntilDue)} days`
+                                      : isDueSoon
+                                      ? `Due in ${task.daysUntilDue} days`
+                                      : `Due in ${task.daysUntilDue} days`}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </TabsContent>
+
+                  {/* Schedules Tab */}
+                  <TabsContent value="schedules">
+                    {groomingSchedules.length === 0 ? (
+                      <EmptyState
+                        icon={Calendar}
+                        title="No grooming schedules"
+                        description="Add a grooming schedule to track recurring grooming tasks."
+                        action={
+                          <Button onClick={() => setGroomingFormOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Grooming Schedule
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Animal</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Frequency</TableHead>
+                            <TableHead>Last Completed</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {groomingSchedules.map((schedule) => {
+                            const animal = animals.find((a) => a.id === schedule.animal_id);
+                            return (
+                              <TableRow key={schedule.id}>
+                                <TableCell className="font-medium">
+                                  {animal?.name || 'Unknown'}
+                                </TableCell>
+                                <TableCell>{schedule.grooming_type}</TableCell>
+                                <TableCell>Every {schedule.frequency_days} days</TableCell>
+                                <TableCell>
+                                  {schedule.last_completed_date
+                                    ? format(parseISO(schedule.last_completed_date), 'MMM d, yyyy')
+                                    : '—'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={schedule.is_active ? 'default' : 'secondary'}>
+                                    {schedule.is_active ? 'Active' : 'Inactive'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        setSelectedSchedule(schedule);
+                                        setGroomingFormOpen(true);
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteSchedule(schedule.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </TabsContent>
+
+                  {/* History Tab */}
+                  <TabsContent value="history">
+                    {groomingRecords.length === 0 ? (
+                      <EmptyState
+                        icon={History}
+                        title="No grooming history"
+                        description="Grooming records will appear here once you complete tasks."
+                      />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Animal</TableHead>
+                            <TableHead>Grooming Type</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {groomingRecords.map((record) => {
+                            const animal = animals.find((a) => a.id === record.animal_id);
+                            return (
+                              <TableRow key={record.id}>
+                                <TableCell className="font-medium">
+                                  {animal?.name || 'Unknown'}
+                                </TableCell>
+                                <TableCell>{record.grooming_type}</TableCell>
+                                <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
+                                <TableCell>{record.notes || '—'}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
+
+            <GroomingScheduleForm
+              open={groomingFormOpen}
+              onOpenChange={(open) => {
+                setGroomingFormOpen(open);
+                if (!open) setSelectedSchedule(null);
+              }}
+              schedule={selectedSchedule || undefined}
+              animals={animals}
+              onSubmit={handleGroomingScheduleSubmit}
+            />
           </TabsContent>
 
           <TabsContent value="medications">
