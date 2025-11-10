@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getProperties } from "@/features/properties/api";
 import { getTasks } from "@/features/tasks/api";
 import { getInfrastructureProjects } from "@/features/infrastructure/api";
+import { getRotationPlans } from "@/features/crops/rotationApi";
 import { format } from "date-fns";
 
 const getCurrentSeason = () => {
@@ -43,6 +44,12 @@ export default function StrategicPlanningHub() {
     enabled: !!user,
   });
 
+  const { data: cropRotations = [] } = useQuery({
+    queryKey: ["crop-rotations", user?.id],
+    queryFn: () => getRotationPlans(user!.id),
+    enabled: !!user,
+  });
+
   const incompleteTasks = tasks.filter((task) => task.status !== "completed").length;
   const currentSeason = getCurrentSeason();
 
@@ -52,6 +59,15 @@ export default function StrategicPlanningHub() {
       if (!a.due_date) return 1;
       if (!b.due_date) return -1;
       return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    })
+    .slice(0, 5);
+
+  const upcomingRotations = cropRotations
+    .filter((rotation) => rotation.plant_date && new Date(rotation.plant_date) >= new Date())
+    .sort((a, b) => {
+      if (!a.plant_date) return 1;
+      if (!b.plant_date) return -1;
+      return new Date(a.plant_date).getTime() - new Date(b.plant_date).getTime();
     })
     .slice(0, 5);
 
@@ -146,6 +162,46 @@ export default function StrategicPlanningHub() {
                           {task.due_date && (
                             <span className="text-xs text-muted-foreground">
                               Due {format(new Date(task.due_date), "MMM d, yyyy")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>🌱 Crop Rotations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingRotations.length === 0 ? (
+                <EmptyState
+                  icon={Sprout}
+                  title="No crop rotations planned"
+                  description="Start planning your seasonal crops"
+                />
+              ) : (
+                <div className="space-y-4">
+                  {upcomingRotations.map((rotation) => (
+                    <div
+                      key={rotation.id}
+                      className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground mb-1">
+                          {rotation.name || rotation.crop_name}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {rotation.plot_name}
+                          </Badge>
+                          {rotation.plant_date && (
+                            <span className="text-xs text-muted-foreground">
+                              Plant {format(new Date(rotation.plant_date), "MMM d, yyyy")}
                             </span>
                           )}
                         </div>
