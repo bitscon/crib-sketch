@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PropertyForm } from '@/features/properties/PropertyForm';
-import { PropertyList } from '@/features/properties/PropertyList';
 import {
   getProperties,
   createProperty,
@@ -11,16 +10,17 @@ import {
   PropertyInsert,
 } from '@/features/properties/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui';
+import { Plus, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function PropertyAssessment() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating, setIsCreating] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,55 +37,33 @@ export default function PropertyAssessment() {
       const data = await getProperties(user.id);
       setProperties(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load properties',
-        variant: 'destructive',
-      });
+      console.error('Failed to load properties:', error);
+      toast.error('Failed to load properties');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async (data: PropertyInsert) => {
+  const handleSubmit = async (data: PropertyInsert) => {
     if (!user?.id) return;
 
     try {
-      const newProperty = await createProperty(user.id, data);
-      setProperties([newProperty, ...properties]);
-      setIsCreating(false);
-      setSelectedProperty(newProperty);
-      toast({
-        title: 'Success',
-        description: 'Property created successfully',
-      });
+      if (selectedProperty) {
+        // Update existing property
+        const updated = await updateProperty(selectedProperty.id, user.id, data);
+        setProperties(properties.map((p) => (p.id === updated.id ? updated : p)));
+        toast.success('Property updated successfully');
+      } else {
+        // Create new property
+        const newProperty = await createProperty(user.id, data);
+        setProperties([newProperty, ...properties]);
+        toast.success('Property created successfully');
+      }
+      setIsCreating(true);
+      setSelectedProperty(null);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create property',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-
-  const handleUpdate = async (data: PropertyInsert) => {
-    if (!user?.id || !selectedProperty) return;
-
-    try {
-      const updated = await updateProperty(selectedProperty.id, user.id, data);
-      setProperties(properties.map((p) => (p.id === updated.id ? updated : p)));
-      setSelectedProperty(updated);
-      toast({
-        title: 'Success',
-        description: 'Property updated successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update property',
-        variant: 'destructive',
-      });
+      console.error('Failed to save property:', error);
+      toast.error(selectedProperty ? 'Failed to update property' : 'Failed to create property');
       throw error;
     }
   };
@@ -100,93 +78,194 @@ export default function PropertyAssessment() {
       setProperties(properties.filter((p) => p.id !== id));
       if (selectedProperty?.id === id) {
         setSelectedProperty(null);
+        setIsCreating(true);
       }
-      toast({
-        title: 'Success',
-        description: 'Property deleted successfully',
-      });
+      toast.success('Property deleted successfully');
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete property',
-        variant: 'destructive',
-      });
+      console.error('Failed to delete property:', error);
+      toast.error('Failed to delete property');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleEditProperty = (property: Property) => {
+    setSelectedProperty(property);
+    setIsCreating(false);
+  };
+
+  const handleNewProperty = () => {
+    setSelectedProperty(null);
+    setIsCreating(true);
+  };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Property Assessment</h1>
-          <p className="text-muted-foreground mt-1">Manage your homestead properties</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Property Assessment
+          </h1>
+          <p className="text-muted-foreground">
+            Map and analyze your homestead properties
+          </p>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Property List */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Properties</CardTitle>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setIsCreating(true);
-                    setSelectedProperty(null);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  New
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PropertyList
-                properties={properties}
-                selectedId={selectedProperty?.id}
-                onSelect={(property) => {
-                  setSelectedProperty(property);
-                  setIsCreating(false);
-                }}
-                onDelete={handleDelete}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Property Form/Details */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>
-                {isCreating ? 'Create Property' : selectedProperty ? 'Edit Property' : 'Property Details'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isCreating || selectedProperty ? (
-                <PropertyForm
-                  property={selectedProperty || undefined}
-                  onSubmit={isCreating ? handleCreate : handleUpdate}
-                  onCancel={() => {
-                    setIsCreating(false);
-                    setSelectedProperty(null);
-                  }}
-                />
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>Select a property to view details or create a new one.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Button onClick={handleNewProperty}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Property
+        </Button>
       </div>
+
+      {/* Two Column Layout */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left: Property Form */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="bg-muted/50 border-b">
+            <CardTitle className="text-lg font-semibold">
+              {isCreating ? 'New Property Assessment' : `Edit: ${selectedProperty?.name}`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <PropertyForm
+                property={selectedProperty || undefined}
+                onSubmit={handleSubmit}
+                onCancel={() => {
+                  setIsCreating(true);
+                  setSelectedProperty(null);
+                }}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Right: Property Details */}
+        <Card>
+          <CardHeader className="bg-muted/50 border-b">
+            <CardTitle className="text-lg font-semibold">
+              Property Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {selectedProperty ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    Property Name
+                  </h3>
+                  <p className="text-base font-semibold">{selectedProperty.name}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    Size
+                  </h3>
+                  <p className="text-base">{selectedProperty.size_acres} acres</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    Location
+                  </h3>
+                  <p className="text-base flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    {selectedProperty.location}
+                  </p>
+                </div>
+                {selectedProperty.climate_zone && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      Climate Zone
+                    </h3>
+                    <Badge variant="secondary">{selectedProperty.climate_zone}</Badge>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                <p className="text-sm">Select a property to view details</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Your Properties List */}
+      <Card>
+        <CardHeader className="bg-muted/50 border-b">
+          <CardTitle className="text-lg font-semibold">
+            Your Properties
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : properties.length === 0 ? (
+            <EmptyState
+              icon={MapPin}
+              title="No properties yet"
+              description="Add your first property to start mapping your homestead"
+              action={
+                <Button onClick={handleNewProperty}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Property
+                </Button>
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {properties.map((property) => (
+                <div
+                  key={property.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-medium text-lg">{property.name}</h3>
+                      {property.climate_zone && (
+                        <Badge variant="secondary">{property.climate_zone}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="font-semibold">
+                        {property.size_acres} acres
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {property.location}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditProperty(property)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(property.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
