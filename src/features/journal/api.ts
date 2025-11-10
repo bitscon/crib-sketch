@@ -68,10 +68,18 @@ export const updateJournalEntry = async (
   id: string,
   data: JournalEntryUpdate
 ): Promise<JournalEntry> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to update a journal entry');
+  }
+
   const { data: entry, error } = await (supabase as any)
     .from('journal_entries')
     .update(data)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -80,10 +88,18 @@ export const updateJournalEntry = async (
 };
 
 export const deleteJournalEntry = async (id: string): Promise<void> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to delete a journal entry');
+  }
+
   const { error } = await (supabase as any)
     .from('journal_entries')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id);
 
   if (error) throw error;
 };
