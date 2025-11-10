@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard, EmptyState } from "@/components/ui";
 import { FilterBar } from "@/components/ui/FilterBar";
-import { Plus, DollarSign, ClipboardList, Building2, Pencil, Lightbulb, Calculator, TrendingUp } from "lucide-react";
+import { Plus, DollarSign, ClipboardList, Building2, Pencil, Lightbulb, Calculator, TrendingUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { 
   getInfrastructureProjects,
@@ -39,6 +46,8 @@ export default function Infrastructure() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [timelineStatusFilter, setTimelineStatusFilter] = useState("all");
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   const { user } = useAuth();
 
@@ -193,6 +202,44 @@ export default function Infrastructure() {
       default:
         return "bg-gray-500";
     }
+  };
+
+  // Timeline calculations
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const calendarStart = startOfWeek(monthStart);
+  const calendarEnd = endOfWeek(monthEnd);
+  
+  const calendarDays = eachDayOfInterval({
+    start: calendarStart,
+    end: calendarEnd,
+  });
+
+  const timelineProjects = useMemo(() => {
+    return projects.filter(project => {
+      if (!project.planned_completion) return false;
+      
+      const projectDate = new Date(project.planned_completion);
+      const isInMonth = isSameMonth(projectDate, currentMonth);
+      const matchesStatus = timelineStatusFilter === "all" || project.status === timelineStatusFilter;
+      
+      return isInMonth && matchesStatus;
+    });
+  }, [projects, currentMonth, timelineStatusFilter]);
+
+  const getProjectsForDay = (day: Date) => {
+    return timelineProjects.filter(project => {
+      if (!project.planned_completion) return false;
+      return isSameDay(new Date(project.planned_completion), day);
+    });
+  };
+
+  const handlePreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
   };
 
   return (
@@ -690,14 +737,130 @@ export default function Infrastructure() {
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-6 mt-6">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h2 className="text-xl font-semibold text-card-foreground mb-4">
-              Timeline
+          {/* Section Title and Controls */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Project Calendar
             </h2>
-            <p className="text-muted-foreground">
-              Timeline content will go here
-            </p>
+            <div className="flex items-center gap-3">
+              <Select value={timelineStatusFilter} onValueChange={setTimelineStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent className="z-50 bg-background">
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="planned">Planned</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Timeline View
+              </Button>
+            </div>
           </div>
+
+          {/* Calendar Card */}
+          <Card>
+            <CardHeader className="bg-muted/50 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">
+                  {format(currentMonth, "MMMM yyyy")}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousMonth}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextMonth}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {isLoading ? (
+                <div className="h-96 flex items-center justify-center">
+                  <div className="h-16 w-16 rounded-lg bg-muted animate-pulse" />
+                </div>
+              ) : timelineProjects.length === 0 ? (
+                <div className="h-96 flex items-center justify-center">
+                  <EmptyState
+                    icon={CalendarIcon}
+                    title="No projects scheduled"
+                    description={`No projects with completion dates in ${format(currentMonth, "MMMM yyyy")}`}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Calendar Header - Days of Week */}
+                  <div className="grid grid-cols-7 gap-2 mb-2">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                      <div
+                        key={day}
+                        className="text-center text-sm font-semibold text-muted-foreground py-2"
+                      >
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-2">
+                    {calendarDays.map((day, idx) => {
+                      const dayProjects = getProjectsForDay(day);
+                      const isCurrentMonth = isSameMonth(day, currentMonth);
+                      const isToday = isSameDay(day, new Date());
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`min-h-[100px] p-2 rounded-lg border ${
+                            isCurrentMonth
+                              ? "bg-card border-border"
+                              : "bg-muted/30 border-muted"
+                          } ${isToday ? "ring-2 ring-primary" : ""}`}
+                        >
+                          <div
+                            className={`text-sm font-medium mb-1 ${
+                              isCurrentMonth ? "text-foreground" : "text-muted-foreground"
+                            } ${isToday ? "text-primary font-bold" : ""}`}
+                          >
+                            {format(day, "d")}
+                          </div>
+                          <div className="space-y-1">
+                            {dayProjects.map((project) => (
+                              <div
+                                key={project.id}
+                                className={`text-xs px-2 py-1 rounded truncate ${
+                                  project.status === "completed"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                    : project.status === "in_progress"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                }`}
+                                title={project.name}
+                              >
+                                {project.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
