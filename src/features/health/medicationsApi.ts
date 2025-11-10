@@ -1,0 +1,83 @@
+import { supabase } from '@/integrations/supabase/client';
+
+export interface Medication {
+  id: string;
+  user_id: string | null;
+  name: string;
+  target_animals: string[];
+  dosage_per_lb: number | null;
+  dosage_unit: string | null;
+  administration_method: string | null;
+  withdrawal_period_meat_days: number | null;
+  withdrawal_period_milk_days: number | null;
+  notes: string | null;
+  created_at?: string;
+}
+
+export interface MedicationInsert {
+  name: string;
+  target_animals: string[];
+  dosage_per_lb?: number | null;
+  dosage_unit?: string | null;
+  administration_method?: string | null;
+  withdrawal_period_meat_days?: number | null;
+  withdrawal_period_milk_days?: number | null;
+  notes?: string | null;
+}
+
+export async function getMedications(userId: string) {
+  const { data, error } = await (supabase as any)
+    .from('medications')
+    .select('*')
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data as Medication[];
+}
+
+export async function getMedication(id: string) {
+  const { data, error } = await (supabase as any)
+    .from('medications')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data as Medication;
+}
+
+export async function createMedication(userId: string, medication: MedicationInsert) {
+  const { data, error } = await (supabase as any)
+    .from('medications')
+    .insert({
+      ...medication,
+      user_id: userId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Medication;
+}
+
+export async function updateMedication(id: string, medication: Partial<MedicationInsert>) {
+  const { data, error } = await (supabase as any)
+    .from('medications')
+    .update(medication)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Medication;
+}
+
+export async function deleteMedication(id: string) {
+  const { error } = await (supabase as any)
+    .from('medications')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
