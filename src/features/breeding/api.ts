@@ -31,9 +31,16 @@ export const getBreedingEvents = async (userId: string): Promise<BreedingEvent[]
 };
 
 export const createBreedingEvent = async (event: Partial<BreedingEvent>): Promise<BreedingEvent> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to create a breeding event');
+  }
+
   const { data, error } = await (supabase as any)
     .from('breeding_events')
-    .insert([event])
+    .insert([{ ...event, user_id: user.id }])
     .select()
     .single();
 
@@ -42,10 +49,18 @@ export const createBreedingEvent = async (event: Partial<BreedingEvent>): Promis
 };
 
 export const updateBreedingEvent = async (id: string, event: Partial<BreedingEvent>): Promise<BreedingEvent> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to update a breeding event');
+  }
+
   const { data, error } = await (supabase as any)
     .from('breeding_events')
     .update(event)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -54,10 +69,18 @@ export const updateBreedingEvent = async (id: string, event: Partial<BreedingEve
 };
 
 export const deleteBreedingEvent = async (id: string): Promise<void> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to delete a breeding event');
+  }
+
   const { error } = await (supabase as any)
     .from('breeding_events')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id);
 
   if (error) throw error;
 };
