@@ -1,8 +1,98 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { StatCard, EmptyState } from "@/components/ui";
+import { Plus, DollarSign, ClipboardList, Building2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { 
+  getInfrastructureProjects,
+  createInfrastructureProject,
+  type InfrastructureProject,
+  type InfrastructureProjectInsert
+} from "@/features/infrastructure/api";
+import { InfrastructureModal } from "@/features/infrastructure/InfrastructureModal";
+import type { InfrastructureFormData } from "@/features/infrastructure/formSchema";
 
 export default function Infrastructure() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [projects, setProjects] = useState<InfrastructureProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    loadProjects();
+  }, [user]);
+
+  const loadProjects = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const data = await getInfrastructureProjects(user.id);
+      setProjects(data);
+    } catch (error) {
+      console.error("Failed to load projects:", error);
+      toast.error("Failed to load infrastructure projects");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateProject = async (data: InfrastructureFormData) => {
+    if (!user) return;
+
+    try {
+      const projectData: InfrastructureProjectInsert = {
+        name: data.name,
+        type: data.type,
+        status: data.status,
+        priority: data.priority,
+        estimated_cost: data.estimated_cost,
+        planned_completion: data.planned_completion?.toISOString(),
+        materials_needed: data.materials_needed,
+        notes: data.notes,
+      };
+      
+      await createInfrastructureProject(user.id, projectData);
+      toast.success("Project created successfully");
+      await loadProjects();
+    } catch (error) {
+      console.error("Failed to create project:", error);
+      toast.error("Failed to create project");
+      throw error;
+    }
+  };
+
+  // Calculate stats
+  const plannedCount = projects.filter(p => p.status === "planned").length;
+  const inProgressCount = projects.filter(p => p.status === "in_progress").length;
+  const completedCount = projects.filter(p => p.status === "completed").length;
+  const totalBudget = projects.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
+
+  // Get recent projects (max 5)
+  const recentProjects = projects.slice(0, 5);
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "planned":
+        return "default";
+      case "in_progress":
+        return "secondary";
+      case "completed":
+        return "outline";
+      default:
+        return "default";
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    return status.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   return (
     <div className="space-y-6">
@@ -46,14 +136,117 @@ export default function Infrastructure() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h2 className="text-xl font-semibold text-card-foreground mb-4">
-              Project Overview
+          {/* Section Title */}
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight mb-4">
+              Infrastructure Overview
             </h2>
-            <p className="text-muted-foreground">
-              Overview content will go here
-            </p>
           </div>
+
+          {/* Stats Cards */}
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 rounded-lg border bg-card animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Planned"
+                value={plannedCount}
+                icon={ClipboardList}
+                tone="blue"
+                description="Projects in planning"
+              />
+              <StatCard
+                title="In Progress"
+                value={inProgressCount}
+                icon={Building2}
+                tone="amber"
+                description="Active projects"
+              />
+              <StatCard
+                title="Completed"
+                value={completedCount}
+                icon={Building2}
+                tone="green"
+                description="Finished projects"
+              />
+              <StatCard
+                title="Total Budget"
+                value={`$${totalBudget.toLocaleString()}`}
+                icon={DollarSign}
+                tone="neutral"
+                description="Estimated costs"
+              />
+            </div>
+          )}
+
+          {/* Projects List Card */}
+          <Card>
+            <CardHeader className="bg-blue-50 dark:bg-blue-950/20 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">
+                  Your Infrastructure Projects
+                </CardTitle>
+                <Button onClick={() => setIsModalOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : recentProjects.length === 0 ? (
+                <EmptyState
+                  icon={Building2}
+                  title="No infrastructure projects yet"
+                  description="Start planning your homestead infrastructure"
+                  action={
+                    <Button onClick={() => setIsModalOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Project
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="space-y-4">
+                  {recentProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-medium">{project.name}</h3>
+                          <Badge variant={getStatusBadgeVariant(project.status)}>
+                            {formatStatus(project.status)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="capitalize">{project.type.replace("_", " ")}</span>
+                          {project.planned_completion && (
+                            <span>
+                              Due: {format(new Date(project.planned_completion), "MMM d, yyyy")}
+                            </span>
+                          )}
+                          {project.estimated_cost && (
+                            <span>${project.estimated_cost.toLocaleString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="planner" className="space-y-6 mt-6">
@@ -89,6 +282,13 @@ export default function Infrastructure() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Infrastructure Modal */}
+      <InfrastructureModal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateProject}
+      />
     </div>
   );
 }
