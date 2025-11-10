@@ -91,10 +91,18 @@ export const updateRotationPlan = async (
   id: string,
   data: UpdateRotationPlanData
 ): Promise<RotationPlan> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to update a rotation plan');
+  }
+
   const { data: updatedPlan, error } = await (supabase as any)
     .from('crop_rotations')
     .update(data)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -110,10 +118,18 @@ export const updateRotationPlan = async (
  * Delete a rotation plan
  */
 export const deleteRotationPlan = async (id: string): Promise<void> => {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated to delete a rotation plan');
+  }
+
   const { error } = await (supabase as any)
     .from('crop_rotations')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('Error deleting rotation plan:', error);
