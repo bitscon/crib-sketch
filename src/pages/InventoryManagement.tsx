@@ -92,8 +92,12 @@ export default function InventoryManagement() {
 
   // Calculate stats
   const totalItems = items.length;
-  const lowStockItems = items.filter(item => isLowStock(item) && item.current_stock > 0);
-  const outOfStockItems = items.filter(item => item.current_stock === 0);
+  const lowStockItems = items.filter(item => 
+    item.reorder_point != null && 
+    item.current_stock <= item.reorder_point && 
+    item.current_stock > 0
+  );
+  const outOfStockItems = items.filter(item => item.current_stock <= 0);
   const categories = useMemo(() => {
     const uniqueCategories = new Set(items.map(item => item.category));
     return uniqueCategories.size;
@@ -188,9 +192,9 @@ export default function InventoryManagement() {
             ) : (
               <div className="space-y-3">
                 {items.map((item) => {
-                  const stockStatus = item.current_stock === 0 
+                  const stockStatus = item.current_stock <= 0
                     ? 'out' 
-                    : isLowStock(item) 
+                    : (item.reorder_point != null && item.current_stock <= item.reorder_point)
                     ? 'low' 
                     : 'good';
                   
@@ -260,10 +264,14 @@ export default function InventoryManagement() {
                 ))}
               </div>
             ) : [...outOfStockItems, ...lowStockItems].length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-12 w-12 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-sm">No stock alerts</p>
-                <p className="text-xs">All items are well stocked</p>
+              <div className="text-center py-8">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="font-medium text-foreground">All items well-stocked!</p>
+                  <p className="text-sm text-muted-foreground">No stock alerts at this time</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -277,6 +285,9 @@ export default function InventoryManagement() {
                       <Badge variant="destructive" className="text-xs">Out</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground capitalize">{item.category}</p>
+                    <p className="text-xs text-red-700 dark:text-red-400 font-semibold mt-1">
+                      0 {item.unit} remaining
+                    </p>
                   </div>
                 ))}
                 {lowStockItems.map((item) => (
@@ -290,8 +301,9 @@ export default function InventoryManagement() {
                         Low
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.current_stock} {item.unit} left
+                    <p className="text-xs text-muted-foreground capitalize">{item.category}</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold mt-1">
+                      {item.current_stock} / {item.reorder_point} {item.unit}
                     </p>
                   </div>
                 ))}
