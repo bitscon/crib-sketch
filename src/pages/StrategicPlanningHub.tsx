@@ -1,12 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/StatCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Sprout, Calendar, TrendingUp } from "lucide-react";
+import { MapPin, Sprout, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getProperties } from "@/features/properties/api";
 import { getTasks } from "@/features/tasks/api";
 import { getInfrastructureProjects } from "@/features/infrastructure/api";
+import { format } from "date-fns";
 
 const getCurrentSeason = () => {
   const month = new Date().getMonth();
@@ -40,6 +44,15 @@ export default function StrategicPlanningHub() {
 
   const incompleteTasks = tasks.filter((task) => task.status !== "completed").length;
   const currentSeason = getCurrentSeason();
+
+  const upcomingTasks = tasks
+    .filter((task) => task.status === "pending" || task.status === "in_progress")
+    .sort((a, b) => {
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    })
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-accent/10">
@@ -100,6 +113,48 @@ export default function StrategicPlanningHub() {
             description="Current growing"
             tone="neutral"
           />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>📅 Upcoming Tasks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingTasks.length === 0 ? (
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="No pending tasks"
+                  description="Great job staying on top of your homestead!"
+                />
+              ) : (
+                <div className="space-y-4">
+                  {upcomingTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground mb-1">
+                          {task.title}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {task.category}
+                          </Badge>
+                          {task.due_date && (
+                            <span className="text-xs text-muted-foreground">
+                              Due {format(new Date(task.due_date), "MMM d, yyyy")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
