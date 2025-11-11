@@ -1,17 +1,92 @@
-import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { User } from "@supabase/supabase-js";
+
+interface Profile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const profileSchema = z.object({
+  first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
+  last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
+});
+
+type ProfileFormData = z.infer<typeof profileSchema>;
 
 const UserProfile = () => {
-  const { user, profile } = useAuth();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      first_name: "",
+      last_name: "",
+    }
+  });
+
+  useEffect(() => {
+    fetchUserAndProfile();
+  }, []);
+
+  const fetchUserAndProfile = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch current user
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+      if (!authUser) throw new Error("No user found");
+      
+      setUser(authUser);
+      
+      // Fetch profile
+      const { data: profileData, error: profileError } = await (supabase as any)
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+      
+      if (profileError) throw profileError;
+      
+      setProfile(profileData);
+      
+      // Update form with profile data if exists
+      if (profileData) {
+        reset({
+          first_name: profileData.first_name || "",
+          last_name: profileData.last_name || "",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load profile data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getInitials = () => {
     if (profile?.first_name || profile?.last_name) {
@@ -20,8 +95,61 @@ const UserProfile = () => {
     return user?.email?.[0]?.toUpperCase() || 'U';
   };
 
+  const onSubmit = async (data: ProfileFormData) => {
+    if (!user) return;
+    
+    try {
+      setIsSaving(true);
+      
+      if (profile) {
+        // Update existing profile
+        const { error } = await (supabase as any)
+          .from('profiles')
+          .update({
+            first_name: data.first_name.trim(),
+            last_name: data.last_name.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully.",
+        });
+      } else {
+        // Create new profile
+        const { error } = await (supabase as any)
+          .from('profiles')
+          .insert({
+            id: user.id,
+            first_name: data.first_name.trim(),
+            last_name: data.last_name.trim(),
+          });
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Profile created",
+          description: "Your profile has been created successfully.",
+        });
+      }
+      
+      // Refresh profile data
+      await fetchUserAndProfile();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSignOut = async () => {
-    setIsLoading(true);
     try {
       await supabase.auth.signOut();
       toast({
@@ -34,10 +162,16 @@ const UserProfile = () => {
         description: "Failed to sign out. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -53,6 +187,16 @@ const UserProfile = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main content - takes 2 columns on desktop */}
         <div className="space-y-6 lg:col-span-2">
+          {/* Profile not found alert */}
+          {!profile && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Complete your profile</strong> - Add your name to personalize your Homestead Architect experience.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Profile Information Card */}
           <Card>
             <CardHeader>
@@ -61,50 +205,71 @@ const UserProfile = () => {
                 Your basic account information
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    {profile?.first_name && profile?.last_name
-                      ? `${profile.first_name} ${profile.last_name}`
-                      : 'Homestead User'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+            <CardContent>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {profile?.first_name && profile?.last_name
+                        ? `${profile.first_name} ${profile.last_name}`
+                        : 'Homestead User'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    defaultValue={profile?.first_name || ''}
-                    disabled
-                  />
+                <div className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      {...register("first_name")}
+                      placeholder="Enter your first name"
+                    />
+                    {errors.first_name && (
+                      <p className="text-sm text-destructive">{errors.first_name.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      {...register("last_name")}
+                      placeholder="Enter your last name"
+                    />
+                    {errors.last_name && (
+                      <p className="text-sm text-destructive">{errors.last_name.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    defaultValue={profile?.last_name || ''}
-                    disabled
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                  />
-                </div>
-              </div>
+
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    profile ? 'Update Profile' : 'Create Profile'
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
 
@@ -130,9 +295,8 @@ const UserProfile = () => {
                 <Button
                   variant="destructive"
                   onClick={handleSignOut}
-                  disabled={isLoading}
                 >
-                  {isLoading ? 'Signing out...' : 'Sign Out'}
+                  Sign Out
                 </Button>
               </div>
             </CardContent>
