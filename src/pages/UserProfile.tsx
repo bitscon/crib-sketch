@@ -202,6 +202,11 @@ const UserProfile = () => {
   };
 
   const handleDeleteAccount = () => {
+    // TODO: This should call a protected Supabase Edge Function to:
+    // 1. Delete all user data from related tables
+    // 2. Delete the user's profile
+    // 3. Delete the auth user account
+    // For now, just show a placeholder message
     toast({
       title: "Account deletion",
       description: "Account deletion feature coming soon.",
@@ -470,49 +475,6 @@ const UserProfile = () => {
             </CardContent>
           </Card>
 
-          {/* Security Card */}
-          <Card className="border-destructive/20">
-            <CardHeader>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>
-                Manage your account security and authentication
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleSignOut}
-                  className="flex-1"
-                >
-                  Sign Out
-                </Button>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="flex-1">
-                      Delete Account
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your account
-                        and remove all your data from our servers.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Delete Account
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Sidebar - takes 1 column on desktop */}
@@ -569,6 +531,69 @@ const UserProfile = () => {
           </Card>
         </div>
       </div>
+
+      {/* Security Section - Full width at bottom */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Security</CardTitle>
+          <CardDescription>
+            Manage your account security and authentication
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Sign Out Button */}
+          <div>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              className="w-full sm:w-auto"
+            >
+              Sign Out
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t" />
+
+          {/* Danger Zone */}
+          <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-sm font-semibold text-destructive">Danger Zone</h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Irreversible and destructive actions
+                </p>
+              </div>
+              
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full sm:w-auto">
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your account
+                      and remove all your data from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDeleteAccount} 
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
