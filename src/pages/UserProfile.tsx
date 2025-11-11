@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,11 +10,11 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AlertCircle, Loader2, User as UserIcon, CreditCard } from "lucide-react";
+import { AlertCircle, Loader2, User as UserIcon, CreditCard, Camera } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 
@@ -55,6 +55,8 @@ const UserProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -234,6 +236,116 @@ const UserProfile = () => {
     });
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 2MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+
+      // Delete old avatar if exists
+      if (profile?.avatar_url) {
+        const oldPath = `user-avatars/${user.id}`;
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const filePath = `user-avatars/${user.id}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { 
+          upsert: true,
+          contentType: file.type 
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Fetch existing profile to preserve non-editable fields
+      const { data: existingProfile, error: fetchError } = await (supabase as any)
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await (supabase as any)
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+          // Preserve all existing fields
+          ...(existingProfile && {
+            first_name: existingProfile.first_name,
+            last_name: existingProfile.last_name,
+            display_name: existingProfile.display_name,
+            location: existingProfile.location,
+            website_url: existingProfile.website_url,
+            bio: existingProfile.bio,
+            role: existingProfile.role,
+            subscription_status: existingProfile.subscription_status,
+            plan_type: existingProfile.plan_type,
+            subscription_id: existingProfile.subscription_id,
+            trial_start_date: existingProfile.trial_start_date,
+            trial_end_date: existingProfile.trial_end_date,
+          }),
+        }, {
+          onConflict: 'id'
+        });
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated successfully.",
+      });
+
+      // Refresh profile data
+      await fetchUserAndProfile();
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload avatar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -279,16 +391,43 @@ const UserProfile = () => {
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 {/* Avatar and Display Name Section */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-4 border-b">
-                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                    <AvatarFallback className="text-xl sm:text-2xl bg-primary/10 text-primary">
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+                      {profile?.avatar_url && (
+                        <AvatarImage src={profile.avatar_url} alt={getDisplayName()} />
+                      )}
+                      <AvatarFallback className="text-xl sm:text-2xl bg-primary/10 text-primary">
+                        {getInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-background shadow-md"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                    >
+                      {isUploadingAvatar ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg truncate">
                       {getDisplayName()}
                     </h3>
                     <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click camera icon to change avatar</p>
                   </div>
                 </div>
 
