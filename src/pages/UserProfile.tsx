@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -13,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import { useNavigate } from "react-router-dom";
 
 interface Profile {
   id: string;
@@ -42,6 +44,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 
 const UserProfile = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,6 +187,7 @@ const UserProfile = () => {
         title: "Signed out",
         description: "You've been successfully signed out.",
       });
+      navigate('/login');
     } catch (error) {
       toast({
         title: "Error",
@@ -191,6 +195,13 @@ const UserProfile = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteAccount = () => {
+    toast({
+      title: "Account deletion",
+      description: "Account deletion feature coming soon.",
+    });
   };
 
   if (isLoading) {
@@ -403,15 +414,49 @@ const UserProfile = () => {
                   Refresh Status
                 </Button>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="pt-4 border-t">
+          {/* Security Card */}
+          <Card className="border-destructive/20">
+            <CardHeader>
+              <CardTitle>Security</CardTitle>
+              <CardDescription>
+                Manage your account security and authentication
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleSignOut}
-                  className="w-full sm:w-auto"
+                  className="flex-1"
                 >
                   Sign Out
                 </Button>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="flex-1">
+                      Delete Account
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data from our servers.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete Account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
