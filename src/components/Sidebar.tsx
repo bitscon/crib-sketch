@@ -36,7 +36,7 @@ const navSections = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const { user, profile } = useAuth();
 
@@ -88,6 +88,7 @@ export function Sidebar() {
                   <Link
                     key={item.title}
                     to={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors",
                       isActive

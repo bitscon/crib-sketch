@@ -57,7 +57,7 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Sidebar - desktop (always visible) */}
       <div className="hidden lg:block">
-        <Sidebar />
+        <Sidebar onNavigate={() => {}} />
       </div>
 
       {/* Sidebar - mobile (overlay) */}
@@ -66,7 +66,7 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Sidebar />
+        <Sidebar onNavigate={() => setMobileOpen(false)} />
       </div>
 
       {/* Main content */}
