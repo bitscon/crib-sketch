@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -17,13 +18,22 @@ interface Profile {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  display_name: string | null;
+  location: string | null;
+  website_url: string | null;
+  bio: string | null;
   created_at?: string;
   updated_at?: string;
 }
 
 const profileSchema = z.object({
-  first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
-  last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
+  display_name: z.string().trim().max(50, "Display name must be less than 50 characters").optional().or(z.literal("")),
+  full_name: z.string().trim().min(1, "Full name is required").max(100, "Full name must be less than 100 characters"),
+  location: z.string().trim().max(100, "Location must be less than 100 characters").optional().or(z.literal("")),
+  website_url: z.string().trim().max(255, "Website URL must be less than 255 characters")
+    .refine((val) => !val || val.match(/^https?:\/\/.+/i), "Must be a valid URL starting with http:// or https://")
+    .optional().or(z.literal("")),
+  bio: z.string().trim().max(500, "Bio must be less than 500 characters").optional().or(z.literal("")),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -38,8 +48,11 @@ const UserProfile = () => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      first_name: "",
-      last_name: "",
+      display_name: "",
+      full_name: "",
+      location: "",
+      website_url: "",
+      bio: "",
     }
   });
 
@@ -72,9 +85,13 @@ const UserProfile = () => {
       
       // Update form with profile data if exists
       if (profileData) {
+        const fullName = [profileData.first_name, profileData.last_name].filter(Boolean).join(" ");
         reset({
-          first_name: profileData.first_name || "",
-          last_name: profileData.last_name || "",
+          display_name: profileData.display_name || "",
+          full_name: fullName || "",
+          location: profileData.location || "",
+          website_url: profileData.website_url || "",
+          bio: profileData.bio || "",
         });
       }
     } catch (error) {
@@ -89,10 +106,22 @@ const UserProfile = () => {
   };
 
   const getInitials = () => {
-    if (profile?.first_name || profile?.last_name) {
-      return `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase();
+    if (profile?.display_name) {
+      return profile.display_name[0].toUpperCase();
+    }
+    if (profile?.first_name) {
+      return profile.first_name[0].toUpperCase();
     }
     return user?.email?.[0]?.toUpperCase() || 'U';
+  };
+  
+  const getDisplayName = () => {
+    if (profile?.display_name) return profile.display_name;
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    if (profile?.first_name) return profile.first_name;
+    return user?.email?.split('@')[0] || 'User';
   };
 
   const onSubmit = async (data: ProfileFormData) => {
@@ -101,40 +130,37 @@ const UserProfile = () => {
     try {
       setIsSaving(true);
       
-      if (profile) {
-        // Update existing profile
-        const { error } = await (supabase as any)
-          .from('profiles')
-          .update({
-            first_name: data.first_name.trim(),
-            last_name: data.last_name.trim(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Profile updated",
-          description: "Your profile has been updated successfully.",
+      // Parse full name into first and last name
+      const nameParts = data.full_name.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      
+      const profileData = {
+        first_name: firstName,
+        last_name: lastName,
+        display_name: data.display_name?.trim() || null,
+        location: data.location?.trim() || null,
+        website_url: data.website_url?.trim() || null,
+        bio: data.bio?.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Upsert profile (insert or update)
+      const { error } = await (supabase as any)
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          ...profileData,
+        }, {
+          onConflict: 'id'
         });
-      } else {
-        // Create new profile
-        const { error } = await (supabase as any)
-          .from('profiles')
-          .insert({
-            id: user.id,
-            first_name: data.first_name.trim(),
-            last_name: data.last_name.trim(),
-          });
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Profile created",
-          description: "Your profile has been created successfully.",
-        });
-      }
+      
+      if (error) throw error;
+      
+      toast({
+        title: profile ? "Profile updated" : "Profile created",
+        description: "Your profile has been saved successfully.",
+      });
       
       // Refresh profile data
       await fetchUserAndProfile();
@@ -197,55 +223,96 @@ const UserProfile = () => {
             </Alert>
           )}
 
-          {/* Profile Information Card */}
+          {/* Profile Details Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
+              <CardTitle>Profile Details</CardTitle>
               <CardDescription>
-                Your basic account information
+                Manage your public profile information
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                {/* Avatar and Display Name Section */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-4 border-b">
+                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+                    <AvatarFallback className="text-xl sm:text-2xl bg-primary/10 text-primary">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {profile?.first_name && profile?.last_name
-                        ? `${profile.first_name} ${profile.last_name}`
-                        : 'Homestead User'}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg truncate">
+                      {getDisplayName()}
                     </h3>
-                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                   </div>
                 </div>
 
+                {/* Form Fields */}
                 <div className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="displayName">Display Name</Label>
                     <Input
-                      id="firstName"
-                      {...register("first_name")}
-                      placeholder="Enter your first name"
+                      id="displayName"
+                      {...register("display_name")}
+                      placeholder="e.g., FarmersJohn or your preferred name"
                     />
-                    {errors.first_name && (
-                      <p className="text-sm text-destructive">{errors.first_name.message}</p>
+                    {errors.display_name && (
+                      <p className="text-sm text-destructive">{errors.display_name.message}</p>
                     )}
                   </div>
+
                   <div className="grid gap-2">
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="fullName">Full Name *</Label>
                     <Input
-                      id="lastName"
-                      {...register("last_name")}
-                      placeholder="Enter your last name"
+                      id="fullName"
+                      {...register("full_name")}
+                      placeholder="e.g., John Smith"
                     />
-                    {errors.last_name && (
-                      <p className="text-sm text-destructive">{errors.last_name.message}</p>
+                    {errors.full_name && (
+                      <p className="text-sm text-destructive">{errors.full_name.message}</p>
                     )}
                   </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      {...register("location")}
+                      placeholder="e.g., Vermont, USA"
+                    />
+                    {errors.location && (
+                      <p className="text-sm text-destructive">{errors.location.message}</p>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="websiteUrl">Website URL</Label>
+                    <Input
+                      id="websiteUrl"
+                      {...register("website_url")}
+                      type="url"
+                      placeholder="https://your-website.com"
+                    />
+                    {errors.website_url && (
+                      <p className="text-sm text-destructive">{errors.website_url.message}</p>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      {...register("bio")}
+                      placeholder="Tell us about yourself and your homestead..."
+                      rows={4}
+                      className="resize-none"
+                    />
+                    {errors.bio && (
+                      <p className="text-sm text-destructive">{errors.bio.message}</p>
+                    )}
+                  </div>
+
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -259,14 +326,14 @@ const UserProfile = () => {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={isSaving}>
+                <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...
                     </>
                   ) : (
-                    profile ? 'Update Profile' : 'Create Profile'
+                    'Save Profile'
                   )}
                 </Button>
               </form>
