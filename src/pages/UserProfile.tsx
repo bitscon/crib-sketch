@@ -141,10 +141,10 @@ const UserProfile = () => {
     try {
       setIsSaving(true);
       
-      // Fetch existing profile first to preserve role, subscription, and avatar fields
+      // Fetch existing profile first to preserve non-editable fields
       const { data: existingProfile, error: fetchError } = await (supabase as any)
         .from('profiles')
-        .select('role, avatar_url, subscription_status, plan_type, trial_start_date, trial_end_date')
+        .select('role, subscription_status, plan_type, subscription_id, trial_start_date, trial_end_date')
         .eq('id', user.id)
         .maybeSingle();
       
@@ -155,22 +155,24 @@ const UserProfile = () => {
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
       
-      // Build the profile data, only updating editable fields from the form
+      // Build the profile data - only update editable fields
       const profileData = {
         id: user.id,
+        // Editable fields from form
         first_name: firstName,
         last_name: lastName,
         display_name: data.display_name?.trim() || null,
         location: data.location?.trim() || null,
         website_url: data.website_url?.trim() || null,
         bio: data.bio?.trim() || null,
+        // avatar_url would go here when we add avatar upload
         updated_at: new Date().toISOString(),
-        // Preserve existing non-editable fields if they exist
+        // Preserve existing non-editable fields
         ...(existingProfile && {
           role: existingProfile.role,
-          avatar_url: existingProfile.avatar_url,
           subscription_status: existingProfile.subscription_status,
           plan_type: existingProfile.plan_type,
+          subscription_id: existingProfile.subscription_id,
           trial_start_date: existingProfile.trial_start_date,
           trial_end_date: existingProfile.trial_end_date,
         }),
@@ -186,8 +188,8 @@ const UserProfile = () => {
       if (error) throw error;
       
       toast({
-        title: profile ? "Profile updated" : "Profile created",
-        description: "Your profile has been saved successfully.",
+        title: "Profile saved",
+        description: "Your profile has been updated successfully.",
       });
       
       // Refresh profile data
