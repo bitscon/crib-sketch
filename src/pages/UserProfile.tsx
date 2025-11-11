@@ -28,6 +28,8 @@ interface Profile {
   bio: string | null;
   subscription_status?: string | null;
   plan_type?: string | null;
+  trial_start_date?: string | null;
+  trial_end_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -356,21 +358,21 @@ const UserProfile = () => {
             </CardContent>
           </Card>
 
-          {/* Account & Subscription Card */}
+          {/* Subscription & Access Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Account & Subscription</CardTitle>
+              <CardTitle>Subscription & Access</CardTitle>
               <CardDescription>
                 Manage your account and subscription details
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Warning banner for limited plan */}
-              {(!profile?.subscription_status || profile?.subscription_status === 'expired') && (
+              {/* Warning banner for expired or canceled subscription */}
+              {(profile?.subscription_status === 'expired' || profile?.subscription_status === 'canceled') && (
                 <Alert className="bg-yellow-50 border-yellow-200">
                   <AlertCircle className="h-4 w-4 text-yellow-600" />
                   <AlertDescription className="text-yellow-800">
-                    You are on a limited plan.
+                    Your subscription is {profile.subscription_status}. Some features may be limited.
                   </AlertDescription>
                 </Alert>
               )}
@@ -392,7 +394,9 @@ const UserProfile = () => {
                   <div className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full ${
                       profile?.subscription_status === 'active' ? 'bg-green-500' :
+                      profile?.subscription_status === 'trial' ? 'bg-blue-500' :
                       profile?.subscription_status === 'expired' ? 'bg-red-500' :
+                      profile?.subscription_status === 'canceled' ? 'bg-orange-500' :
                       'bg-gray-400'
                     }`} />
                     <span className="text-sm font-medium capitalize">
@@ -404,16 +408,62 @@ const UserProfile = () => {
                 <div className="grid gap-2">
                   <Label>Plan Type</Label>
                   <p className="text-sm font-medium">
-                    {profile?.plan_type || 'Free'}
+                    {profile?.plan_type || 'Not set'}
                   </p>
                 </div>
+
+                {/* Trial Window - only show if dates exist */}
+                {(profile?.trial_start_date || profile?.trial_end_date) && (
+                  <div className="grid gap-2 pt-2 border-t">
+                    <Label>Trial Period</Label>
+                    <div className="text-sm space-y-1">
+                      {profile?.trial_start_date && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Started:</span>
+                          <span className="font-medium">
+                            {new Date(profile.trial_start_date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                      )}
+                      {profile?.trial_end_date && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ends:</span>
+                          <span className="font-medium">
+                            {new Date(profile.trial_end_date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
-                <Button className="flex-1" variant="default" disabled>
+                <Button 
+                  className="flex-1" 
+                  variant="default"
+                  onClick={() => navigate('/upgrade')}
+                >
                   Upgrade Plan
                 </Button>
-                <Button className="flex-1" variant="outline" disabled>
+                <Button 
+                  className="flex-1" 
+                  variant="outline"
+                  onClick={() => {
+                    toast({
+                      title: "Refresh Status",
+                      description: "This feature is coming soon.",
+                    });
+                  }}
+                >
                   Refresh Status
                 </Button>
               </div>
