@@ -22,6 +22,8 @@ interface Profile {
   location: string | null;
   website_url: string | null;
   bio: string | null;
+  subscription_status?: string | null;
+  plan_type?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -340,28 +342,73 @@ const UserProfile = () => {
             </CardContent>
           </Card>
 
-          {/* Account Settings Card */}
+          {/* Account & Subscription Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Account Settings</CardTitle>
+              <CardTitle>Account & Subscription</CardTitle>
               <CardDescription>
-                Manage your account preferences
+                Manage your account and subscription details
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Account Status</p>
-                  <p className="text-sm text-muted-foreground">
-                    Your account is active
+              {/* Warning banner for limited plan */}
+              {(!profile?.subscription_status || profile?.subscription_status === 'expired') && (
+                <Alert className="bg-yellow-50 border-yellow-200">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    You are on a limited plan.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="accountEmail">Email</Label>
+                  <Input
+                    id="accountEmail"
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Subscription Status</Label>
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${
+                      profile?.subscription_status === 'active' ? 'bg-green-500' :
+                      profile?.subscription_status === 'expired' ? 'bg-red-500' :
+                      'bg-gray-400'
+                    }`} />
+                    <span className="text-sm font-medium capitalize">
+                      {profile?.subscription_status || 'None'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Plan Type</Label>
+                  <p className="text-sm font-medium">
+                    {profile?.plan_type || 'Free'}
                   </p>
                 </div>
-                <div className="h-3 w-3 rounded-full bg-green-500" />
               </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+                <Button className="flex-1" variant="default" disabled>
+                  Upgrade Plan
+                </Button>
+                <Button className="flex-1" variant="outline" disabled>
+                  Refresh Status
+                </Button>
+              </div>
+
               <div className="pt-4 border-t">
                 <Button
                   variant="destructive"
                   onClick={handleSignOut}
+                  className="w-full sm:w-auto"
                 >
                   Sign Out
                 </Button>
