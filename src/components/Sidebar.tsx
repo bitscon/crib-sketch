@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Target, BookOpen, Heart, Sprout, Activity, Scale, Wrench, Boxes, Book, MapPin, Calendar, Compass, Users } from "lucide-react";
+import { Home, Target, BookOpen, Heart, Sprout, Activity, Scale, Wrench, Boxes, Book, MapPin, Calendar, Compass, Users, Shield } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,13 @@ const navSections = [
     ],
   },
 ];
+
+const adminSection = {
+  title: "Administration",
+  items: [
+    { title: "User Management", href: "/admin/users", icon: Shield },
+  ],
+};
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
@@ -104,6 +111,38 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </nav>
           </div>
         ))}
+
+        {/* Admin Section - Only visible to admin users */}
+        {profile?.role === 'admin' && (
+          <div className="mb-6">
+            <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {adminSection.title}
+            </h3>
+            <nav className="space-y-1">
+              {adminSection.items.map((item) => {
+                const isActive = location.pathname === item.href;
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.title}
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        )}
       </div>
 
       {/* User Section */}
