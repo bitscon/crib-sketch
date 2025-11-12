@@ -219,14 +219,6 @@ export default function PropertyAssessment() {
                     </div>
                   </div>
                 )}
-                {selectedProperty.annual_rainfall && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                      Annual Rainfall
-                    </h3>
-                    <p className="text-base">{selectedProperty.annual_rainfall} inches</p>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">

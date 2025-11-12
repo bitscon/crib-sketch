@@ -31,7 +31,6 @@ const propertySchema = z.object({
   soil_type: z.string().optional().or(z.literal('')),
   soil_ph: z.coerce.number().min(0).max(14).optional().or(z.literal('')),
   sun_exposure: z.string().optional().or(z.literal('')),
-  annual_rainfall: z.coerce.number().min(0).optional().or(z.literal('')),
   water_sources_text: z.string().trim().max(500, 'Water sources must be less than 500 characters').optional().or(z.literal('')),
 });
 
@@ -56,7 +55,6 @@ export function PropertyForm({ property, onSubmit, onCancel }: PropertyFormProps
       soil_type: property?.soil_type || '',
       soil_ph: property?.soil_ph || undefined,
       sun_exposure: property?.sun_exposure || '',
-      annual_rainfall: property?.annual_rainfall || undefined,
       water_sources_text: property?.water_sources?.join(', ') || '',
     },
   });
@@ -77,7 +75,6 @@ export function PropertyForm({ property, onSubmit, onCancel }: PropertyFormProps
         soil_type: values.soil_type || null,
         soil_ph: values.soil_ph || null,
         sun_exposure: values.sun_exposure || null,
-        annual_rainfall: values.annual_rainfall || null,
         water_sources: waterSourcesArray,
       });
       if (!property) {
@@ -250,26 +247,6 @@ export function PropertyForm({ property, onSubmit, onCancel }: PropertyFormProps
             )}
           />
         </div>
-
-        <FormField
-          control={form.control}
-          name="annual_rainfall"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Annual Rainfall (inches)</FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  step="0.1" 
-                  min="0" 
-                  placeholder="40" 
-                  {...field} 
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <FormField
           control={form.control}

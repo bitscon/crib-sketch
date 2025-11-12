@@ -10,7 +10,6 @@ export interface Property {
   soil_type?: string | null;
   soil_ph?: number | null;
   sun_exposure?: string | null;
-  annual_rainfall?: number | null;
   water_sources?: string[] | null;
   created_at: string;
   updated_at: string;
@@ -24,7 +23,6 @@ export interface PropertyInsert {
   soil_type?: string | null;
   soil_ph?: number | null;
   sun_exposure?: string | null;
-  annual_rainfall?: number | null;
   water_sources?: string[] | null;
 }
 
@@ -36,7 +34,6 @@ export interface PropertyUpdate {
   soil_type?: string | null;
   soil_ph?: number | null;
   sun_exposure?: string | null;
-  annual_rainfall?: number | null;
   water_sources?: string[] | null;
 }
 
